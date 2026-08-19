@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tic Tac Toe — Offline Game School</title>
+<style>
+  body { font-family: system-ui, sans-serif; text-align: center; background: #0f1120; color: #e8e6f5; margin: 0; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 0.4rem 0; }
+  .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 330px; margin: 14px auto; }
+  .cell { aspect-ratio: 1; background: #1b1e35; border: 2px solid #3a3f6e; border-radius: 12px; font-size: 3rem; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+  #status { font-size: 1.3rem; min-height: 2rem; }
+  button { font-size: 1.2rem; padding: 12px 20px; border: none; border-radius: 10px; background: #62e6c9; color: #10212a; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h1>Tic Tac Toe</h1>
+  <p>X starts. Three in a row wins.</p>
+  <div class="board" id="board"></div>
+  <div id="status">X to move</div>
+  <button id="new">New game</button>
+  <script>
+    // --- the lesson in code ---
+    // `grid` is a 2D ARRAY: 3 rows of 3. `wins` lists every winning line.
+    // `checkWin` looks through `wins` to see if one line is all the same mark.
+    var grid = [], turn = 'X', over = false;
+    var wins = [
+      [0,1,2],[3,4,5],[6,7,8],   // rows
+      [0,3,6],[1,4,7],[2,5,8],   // columns
+      [0,4,8],[2,4,6]            // diagonals
+    ];
+
+    function newGame() {
+      grid = ['','','','','','','','',''];
+      turn = 'X'; over = false;
+      document.getElementById('status').textContent = 'X to move';
+      var b = document.getElementById('board');
+      b.innerHTML = '';
+      for (var i = 0; i < 9; i++) {
+        (function (idx) {
+          var c = document.createElement('div');
+          c.className = 'cell';
+          c.onclick = function () { play(idx, c); };
+          b.appendChild(c);
+        })(i);
+      }
+    }
+
+    function play(idx, cell) {
+      if (over || grid[idx] !== '') return;
+      grid[idx] = turn;
+      cell.textContent = turn;
+      if (checkWin(turn)) {
+        document.getElementById('status').textContent = turn + ' wins!';
+        over = true;
+        return;
+      }
+      if (grid.indexOf('') === -1) {
+        document.getElementById('status').textContent = 'Tie game';
+        over = true;
+        return;
+      }
+      turn = (turn === 'X') ? 'O' : 'X';
+      document.getElementById('status').textContent = turn + ' to move';
+    }
+
+    function checkWin(mark) {
+      for (var w = 0; w < wins.length; w++) {
+        var line = wins[w];
+        if (grid[line[0]] === mark && grid[line[1]] === mark && grid[line[2]] === mark) return true;
+      }
+      return false;
+    }
+
+    document.getElementById('new').onclick = newGame;
+    newGame();
+  </script>
+</body>
+</html>

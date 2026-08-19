@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guess the Number — Offline Game School</title>
+<style>
+  body { font-family: system-ui, sans-serif; text-align: center; background: #0f1120; color: #e8e6f5; margin: 0; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 0.4rem 0; }
+  p { font-size: 1.1rem; }
+  .card { background: #1b1e35; border: 1px solid #3a3f6e; border-radius: 14px; padding: 20px; max-width: 380px; margin: 16px auto; }
+  input, button { font-size: 1.4rem; padding: 14px; border-radius: 10px; border: none; }
+  input { width: 120px; text-align: center; background: #262a4a; color: #fff; }
+  button { background: #62e6c9; color: #10212a; font-weight: bold; cursor: pointer; margin: 6px; }
+  #hint { font-size: 1.4rem; font-weight: bold; min-height: 2.2rem; }
+  #tries { color: #a59fc4; }
+</style>
+</head>
+<body>
+  <h1>Guess the Number</h1>
+  <p>I picked a number from 1 to 100.<br>Guess it. I will say HIGHER or LOWER.</p>
+  <div class="card">
+    <input id="guess" type="number" min="1" max="100" value="50" inputmode="numeric">
+    <br>
+    <button id="go">Guess</button>
+    <button id="new">New game</button>
+    <div id="hint">&nbsp;</div>
+    <div id="tries">Tries: 0 &nbsp;·&nbsp; Best way: 7</div>
+  </div>
+  <p>Tip: guess the middle each time. The number of tries never passes 7.</p>
+  <script>
+    // --- the lesson in code ---
+    // `secret` is a number. `low` and `high` remember the range.
+    var secret = 0, low = 1, high = 100, tries = 0;
+
+    function newGame() {
+      secret = Math.floor(Math.random() * 100) + 1; // random 1..100
+      low = 1; high = 100; tries = 0;
+      document.getElementById('hint').textContent = '1 to 100';
+      document.getElementById('tries').textContent = 'Tries: 0';
+      document.getElementById('guess').value = 50;
+    }
+
+    function guess() {
+      var g = Number(document.getElementById('guess').value);
+      if (isNaN(g)) return;
+      tries++;
+      var msg = '';
+      if (g < secret)      { low = g; msg = 'HIGHER (' + (g + 1) + '-' + high + ')'; }
+      else if (g > secret) { high = g; msg = 'LOWER (' + low + '-' + (g - 1) + ')'; }
+      else                 { msg = 'YES! It was ' + secret + ' in ' + tries + ' tries.'; }
+      document.getElementById('hint').textContent = msg;
+      document.getElementById('tries').textContent = 'Tries: ' + tries;
+    }
+
+    document.getElementById('go').onclick = guess;
+    document.getElementById('new').onclick = newGame;
+    document.getElementById('guess').onkeydown = function (e) { if (e.key === 'Enter') guess(); };
+    newGame();
+  </script>
+</body>
+</html>

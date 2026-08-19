@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snake — Offline Game School</title>
+<style>
+  body { font-family: system-ui, sans-serif; text-align: center; background: #0f1120; color: #e8e6f5; margin: 0; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 0.4rem 0; }
+  canvas { background: #1b1e35; border: 2px solid #3a3f6e; border-radius: 10px; max-width: 100%; touch-action: none; }
+  #score { font-size: 1.3rem; color: #a59fc4; }
+  button { font-size: 1.2rem; padding: 12px 20px; border: none; border-radius: 10px; background: #62e6c9; color: #10212a; cursor: pointer; margin: 6px; }
+  .pad { margin: 8px auto; max-width: 240px; }
+  .pad div { display: inline-block; width: 64px; height: 48px; line-height: 48px; background: #3a3f6e; border-radius: 8px; font-size: 1.4rem; cursor: pointer; user-select: none; margin: 2px; }
+</style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <p>Eat the food. Do not hit the wall or yourself.</p>
+  <canvas id="c" width="320" height="320"></canvas>
+  <div id="score">Score: 0</div>
+  <div class="pad" id="pad">
+    <div>&#8593;</div><div style="display:block"></div>
+    <div>&#8592;</div><div>&#8595;</div><div>&#8594;</div>
+  </div>
+  <button id="new">New game</button>
+  <script>
+    // --- the lesson in code ---
+    // `snake` is an ARRAY of parts. Each tick, the head moves one cell and
+    // the tail drops off (unless we ate, then the tail stays -> it grows).
+    // A timer (setInterval) makes it move. Collision checks the head.
+    var SIZE = 20, cell = 16;
+    var snake, dir, next, food, score, timer, running;
+    var cv = document.getElementById('c'), ctx = cv.getContext('2d');
+
+    function newGame() {
+      snake = [{x:7,y:7},{x:6,y:7},{x:5,y:7}];
+      dir = {x:1,y:0}; next = null;
+      score = 0; running = true;
+      placeFood();
+      document.getElementById('score').textContent = 'Score: 0';
+      if (timer) clearInterval(timer);
+      timer = setInterval(tick, 140);
+    }
+
+    function placeFood() {
+      do { food = { x: Math.floor(Math.random() * SIZE), y: Math.floor(Math.random() * SIZE) }; }
+      while (snake.some(function (p) { return p.x === food.x && p.y === food.y; }));
+    }
+
+    function tick() {
+      if (!running) return;
+      if (next) { dir = next; next = null; }
+      var head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+      if (head.x < 0 || head.y < 0 || head.x >= SIZE || head.y >= SIZE ||
+          snake.some(function (p) { return p.x === head.x && p.y === head.y; })) {
+        running = false;
+        clearInterval(timer);
+        document.getElementById('score').textContent = 'Game over. Score: ' + score;
+        return;
+      }
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        document.getElementById('score').textContent = 'Score: ' + score;
+        placeFood();
+      } else {
+        snake.pop(); // tail drops off -> that is how the snake moves
+      }
+      draw();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, 320, 320);
+      ctx.fillStyle = '#62e6c9';
+      for (var i = 0; i < snake.length; i++) ctx.fillRect(snake[i].x * cell, snake[i].y * cell, cell - 2, cell - 2);
+      ctx.fillStyle = '#ff5d5d';
+      ctx.fillRect(food.x * cell, food.y * cell, cell - 2, cell - 2);
+    }
+
+    function turn(x, y) {
+      // prevent reversing straight into yourself
+      if (dir.x !== -x || dir.y !== -y) next = { x: x, y: y };
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowUp') turn(0, -1);
+      if (e.key === 'ArrowDown') turn(0, 1);
+      if (e.key === 'ArrowLeft') turn(-1, 0);
+      if (e.key === 'ArrowRight') turn(1, 0);
+    });
+
+    var pad = document.getElementById('pad');
+    var btns = pad.getElementsByTagName('div');
+    btns[0].onclick = function () { turn(0, -1); };
+    btns[2].onclick = function () { turn(-1, 0); };
+    btns[3].onclick = function () { turn(0, 1); };
+    btns[4].onclick = function () { turn(1, 0); };
+
+    document.getElementById('new').onclick = newGame;
+    newGame();
+  </script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory Match — Offline Game School</title>
+<style>
+  body { font-family: system-ui, sans-serif; text-align: center; background: #0f1120; color: #e8e6f5; margin: 0; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 0.4rem 0; }
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-width: 360px; margin: 14px auto; }
+  .card { aspect-ratio: 1; background: #3a3f6e; border-radius: 12px; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; }
+  .card.open { background: #62e6c9; color: #10212a; }
+  .card.matched { background: #2e5e52; color: #a9f0dd; }
+  #moves { color: #a59fc4; }
+  button { font-size: 1.2rem; padding: 12px 20px; border: none; border-radius: 10px; background: #62e6c9; color: #10212a; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h1>Memory Match</h1>
+  <p>Flip two cards. Find the pairs.</p>
+  <div class="board" id="board"></div>
+  <p id="moves">Moves: 0</p>
+  <button id="new">New game</button>
+  <script>
+    // --- the lesson in code ---
+    // `deck` is an ARRAY of pairs. `shuffle` swaps random positions
+    // (the Fisher-Yates shuffle). `open` remembers the two flipped cards.
+    var deck = [], open = [], moves = 0, lock = false;
+
+    function shuffle(a) {
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t; // swap
+      }
+      return a;
+    }
+
+    function newGame() {
+      var faces = ['A','B','C','D','E','F','G','H'];
+      deck = shuffle(faces.concat(faces)); // 8 pairs -> 16 cards
+      open = []; moves = 0; lock = false;
+      var b = document.getElementById('board');
+      b.innerHTML = '';
+      for (var i = 0; i < deck.length; i++) {
+        var d = document.createElement('div');
+        d.className = 'card';
+        d.textContent = '';
+        d.onclick = function () { flip(this); };
+        b.appendChild(d);
+      }
+      document.getElementById('moves').textContent = 'Moves: 0';
+    }
+
+    function flip(card) {
+      if (lock) return;
+      var idx = Array.prototype.indexOf.call(card.parentNode.children, card);
+      if (card.classList.contains('open') || card.classList.contains('matched')) return;
+      card.textContent = deck[idx];
+      card.classList.add('open');
+      open.push({ card: card, idx: idx });
+      if (open.length === 2) {
+        moves++;
+        document.getElementById('moves').textContent = 'Moves: ' + moves;
+        check();
+      }
+    }
+
+    function check() {
+      lock = true;
+      var a = open[0], b = open[1];
+      if (deck[a.idx] === deck[b.idx]) {
+        a.card.classList.add('matched'); b.card.classList.add('matched');
+        open = [];
+        lock = false;
+        if (document.querySelectorAll('.matched').length === deck.length) {
+          document.getElementById('moves').textContent = 'All matched in ' + moves + ' moves!';
+        }
+      } else {
+        setTimeout(function () {
+          a.card.textContent = ''; b.card.textContent = '';
+          a.card.classList.remove('open'); b.card.classList.remove('open');
+          open = [];
+          lock = false;
+        }, 600);
+      }
+    }
+
+    document.getElementById('new').onclick = newGame;
+    newGame();
+  </script>
+</body>
+</html>

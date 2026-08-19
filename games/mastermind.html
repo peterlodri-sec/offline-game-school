@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mastermind — Offline Game School</title>
+<style>
+  body { font-family: system-ui, sans-serif; text-align: center; background: #0f1120; color: #e8e6f5; margin: 0; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 0.4rem 0; }
+  .row { display: flex; gap: 6px; justify-content: center; margin: 6px 0; }
+  .peg { width: 44px; height: 44px; border-radius: 50%; border: 2px solid #3a3f6e; }
+  .hint { font-size: 0.9rem; color: #a59fc4; width: 130px; text-align: left; padding-left: 10px; line-height: 1.6; }
+  .palette { margin: 10px; }
+  .pal { width: 42px; height: 42px; border-radius: 50%; border: 2px solid #fff; cursor: pointer; display: inline-block; margin: 4px; }
+  #msg { min-height: 1.4rem; font-weight: bold; }
+  button { font-size: 1.2rem; padding: 12px 20px; border: none; border-radius: 10px; background: #62e6c9; color: #10212a; cursor: pointer; margin: 4px; }
+</style>
+</head>
+<body>
+  <h1>Mastermind</h1>
+  <p>Guess the secret 4-color code in 10 tries.<br>
+     <b>&#9679;</b> = right color, right place &nbsp; <b>&#9675;</b> = right color, wrong place</p>
+  <div class="palette" id="palette"></div>
+  <div id="board"></div>
+  <div id="msg">&nbsp;</div>
+  <button id="guessBtn">Check guess</button>
+  <button id="new">New game</button>
+  <script>
+    // --- the lesson in code ---
+    // The secret is an ARRAY of 4 colors. Each guess is compared with two
+    // nested loops: exact matches first, then remaining colors that appear.
+    var COLORS = ['#ff5d5d','#ffc24d','#62e6c9','#5b9dff','#c77dff','#f2f2f2'];
+    var secret = [], current = [], used = 0, maxGuesses = 10;
+
+    function newGame() {
+      secret = [];
+      for (var i = 0; i < 4; i++) secret.push(COLORS[Math.floor(Math.random() * COLORS.length)]);
+      current = ['','','','']; used = 0;
+      document.getElementById('board').innerHTML = '';
+      document.getElementById('msg').textContent = 'Pick 4 colors, then Check.';
+      renderCurrent();
+    }
+
+    function renderCurrent() {
+      var b = document.getElementById('board');
+      var row = document.createElement('div');
+      row.className = 'row';
+      for (var i = 0; i < 4; i++) {
+        var p = document.createElement('div');
+        p.className = 'peg';
+        p.style.background = current[i] || '#262a4a';
+        row.appendChild(p);
+      }
+      b.appendChild(row);
+    }
+
+    var pal = document.getElementById('palette');
+    for (var c = 0; c < COLORS.length; c++) {
+      (function (color) {
+        var d = document.createElement('span');
+        d.className = 'pal';
+        d.style.background = color;
+        d.onclick = function () {
+          for (var i = 0; i < 4; i++) if (current[i] === '') { current[i] = color; break; }
+          document.getElementById('board').lastChild.remove();
+          renderCurrent();
+        };
+        pal.appendChild(d);
+      })(COLORS[c]);
+    }
+
+    document.getElementById('guessBtn').onclick = function () {
+      if (current.indexOf('') !== -1) return;
+      var exact = 0, loose = 0;
+      var remaining = current.slice(), remSecret = secret.slice();
+      for (var i = 3; i >= 0; i--) {
+        if (current[i] === secret[i]) { exact++; remaining.splice(i, 1); remSecret.splice(i, 1); }
+      }
+      for (var j = 0; j < remaining.length; j++) {
+        var k = remSecret.indexOf(remaining[j]);
+        if (k !== -1) { loose++; remSecret.splice(k, 1); }
+      }
+      used++;
+      var hint = document.createElement('span');
+      hint.className = 'hint';
+      hint.textContent = ' '.repeat(exact) + '\u25CF'.repeat(exact) + ' '.repeat(loose) + '\u25CB'.repeat(loose);
+      document.getElementById('board').lastChild.appendChild(hint);
+      if (exact === 4) { document.getElementById('msg').textContent = 'You cracked it in ' + used + ' tries!'; return; }
+      if (used >= maxGuesses) {
+        document.getElementById('msg').textContent = 'Out of tries. The code was ' + secret.join(' ');
+      } else {
+        document.getElementById('msg').textContent = used + '/10 tries';
+        current = ['','','',''];
+        renderCurrent();
+      }
+    };
+
+    document.getElementById('new').onclick = newGame;
+    newGame();
+  </script>
+</body>
+</html>

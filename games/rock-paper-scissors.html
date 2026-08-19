@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rock Paper Scissors — Offline Game School</title>
+<style>
+  body { font-family: system-ui, sans-serif; text-align: center; background: #0f1120; color: #e8e6f5; margin: 0; padding: 16px; }
+  h1 { font-size: 1.6rem; margin: 0.4rem 0; }
+  .card { background: #1b1e35; border: 1px solid #3a3f6e; border-radius: 14px; padding: 20px; max-width: 380px; margin: 16px auto; }
+  .choice { font-size: 1.5rem; padding: 18px 16px; margin: 6px; border-radius: 12px; border: none; background: #3a3f6e; color: #fff; cursor: pointer; width: 30%; }
+  #round { font-size: 1.4rem; min-height: 2.4rem; }
+  #score { font-size: 1.3rem; color: #a59fc4; }
+  button.small { background: #62e6c9; color: #10212a; font-size: 1rem; padding: 10px 16px; border: none; border-radius: 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h1>Rock Paper Scissors</h1>
+  <p>Pick one. Rock beats scissors,<br>scissors beat paper, paper beats rock.</p>
+  <div class="card">
+    <button class="choice" data="rock">&#9994; Rock</button>
+    <button class="choice" data="paper">&#9995; Paper</button>
+    <button class="choice" data="scissors">&#9996; Scissors</button>
+    <div id="round">You: — &nbsp;vs&nbsp; —</div>
+    <div id="score">You 0 — 0 Computer</div>
+    <button class="small" id="new">New game</button>
+  </div>
+  <script>
+    // --- the lesson in code ---
+    // `beats` is a tiny table: for each choice, what it defeats.
+    // The computer picks randomly. `youWin` decides with one if/else chain.
+    var beats = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
+    var you = 0, comp = 0;
+
+    function play(yourChoice) {
+      var options = ['rock', 'paper', 'scissors'];
+      var cpu = options[Math.floor(Math.random() * 3)]; // random pick
+      var msg;
+      if (yourChoice === cpu)       msg = 'Tie — both picked ' + cpu;
+      else if (beats[yourChoice] === cpu) { you++; msg = 'You win! ' + yourChoice + ' beats ' + cpu; }
+      else                          { comp++; msg = 'Computer wins — ' + cpu + ' beats ' + yourChoice; }
+      document.getElementById('round').textContent = msg;
+      document.getElementById('score').textContent = 'You ' + you + ' — ' + comp + ' Computer';
+    }
+
+    var buttons = document.querySelectorAll('.choice');
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].onclick = function () { play(this.getAttribute('data')); };
+    }
+    document.getElementById('new').onclick = function () { you = 0; comp = 0; document.getElementById('score').textContent = 'You 0 — 0 Computer'; };
+  </script>
+</body>
+</html>
