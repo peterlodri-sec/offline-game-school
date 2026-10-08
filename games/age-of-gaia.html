@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Age of Gaia — an Age of Empires demake (one file, offline)</title>
+<meta name="description" content="A tiny one-file real-time strategy game in the spirit of Age of Empires: gather, build, age up (Dark → Feudal → Castle), and survive five waves. No internet, no install.">
+<style>
+  :root{ --ink:#0b0c0e; --paper:#e8e2d2; --dim:#8b8578; --gold:#e3b341; --green:#6fbf5a; --wood:#a9743d; --red:#e05a4f; --blue:#5aa0e0; --line:#2a2c30; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:var(--ink);color:var(--paper);font-family:"SF Mono","JetBrains Mono",ui-monospace,monospace;overflow:hidden}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  #hud{display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;background:#0e1014}
+  #hud .res b{color:var(--gold)} #hud .age b{color:var(--green)} #hud .wave b{color:var(--red)} #hud .hp b{color:var(--blue)}
+  #hud .grow{flex:1}
+  #stage{flex:1;position:relative}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;background:#0c1410}
+  #bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:8px;flex-wrap:wrap;padding:8px 12px;background:rgba(10,12,16,.86);border-top:1px solid var(--line)}
+  .btn{cursor:pointer;user-select:none;border:1px solid #3a3c42;color:var(--paper);background:#14161a;padding:7px 11px;border-radius:6px;font:inherit;font-size:12px}
+  .btn:hover{border-color:var(--gold)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn small{color:var(--dim)}
+  #msg{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);text-align:center;font-size:20px;line-height:1.6;pointer-events:none;text-shadow:0 2px 18px #000}
+  #msg b{color:var(--gold)}
+  #sig{position:absolute;right:12px;top:10px;font-size:10.5px;color:#5c5b55;text-align:right;line-height:1.6;pointer-events:none}
+  #sig .sga{color:#ff8fc0}
+  a{color:var(--blue)}
+  @media (max-width:640px){ #sig{display:none} #hud{font-size:11px;gap:9px} }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <span class="res">🌾 food <b id="r-food">150</b></span>
+    <span class="res">🪵 wood <b id="r-wood">150</b></span>
+    <span class="res">🪙 gold <b id="r-gold">50</b></span>
+    <span class="age">age <b id="age">Dark</b></span>
+    <span class="wave">wave <b id="wave">0/5</b></span>
+    <span class="hp">town <b id="tc">500</b></span>
+    <span class="res">pop <b id="pop">3/10</b></span>
+    <span class="grow"></span>
+    <span style="color:var(--dim)" id="hint">click a tree / berry / gold to send a villager</span>
+  </div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="msg"></div>
+    <div id="sig">Age of Gaia · an Age of Empires demake<br>one file · offline · <span class="sga">fine touch from within</span> · 0 + 1</div>
+    <div id="bar">
+      <button class="btn" data-a="villager">train villager <small>50🌾</small></button>
+      <button class="btn" data-a="militia">train militia <small>60🌾 20🪙</small></button>
+      <button class="btn" data-a="house">build house <small>30🪵 +5 pop</small></button>
+      <button class="btn" data-a="ageup" id="ageup">age up → Feudal <small>300🌾 100🪵</small></button>
+      <button class="btn" data-a="restart" id="restart" style="display:none">play again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  let W = 0, H = 0, DPR = 1;
+  function resize(){
+    DPR = Math.min(devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  addEventListener('resize', resize);
+
+  const RATE = 3;                 // villager gather / s at base
+  const AGES = ['Dark', 'Feudal', 'Castle'];
+  const NAMES = ['food', 'wood', 'gold'];
+  const $ = id => document.getElementById(id);
+
+  let S;
+  function reset(){
+    S = {
+      res: { food: 150, wood: 150, gold: 50 },
+      age: 0, wave: 0, nextWave: 15, over: null,
+      pop: 0, popCap: 10,
+      tc: { x: W * 0.16, y: H * 0.6, hp: 500, max: 500, r: 30 },
+      nodes: [], villagers: [], militia: [], enemies: [],
+      sel: null, toasts: [], t: 0
+    };
+    const kinds = [['food', W*0.42, H*0.28], ['food', W*0.36, H*0.72], ['wood', W*0.62, H*0.25],
+                   ['wood', W*0.70, H*0.58], ['wood', W*0.66, H*0.82], ['gold', W*0.86, H*0.44], ['gold', W*0.30, H*0.16]];
+    S.nodes = kinds.map(([type, x, y]) => ({ type, x, y, amount: 320, r: 14 }));
+    for (let i = 0; i < 3; i++) S.villagers.push(villager(S.tc.x + 46 + i * 18, S.tc.y + 40));
+    recompute();
+  }
+  function villager(x, y){ return { x, y, tx: x, ty: y, node: null, hp: 20, r: 8 }; }
+  function militiaU(x, y){ return { x, y, hp: 40 + S.age * 12, r: 9, atk: 8 + S.age * 2, cool: 0 }; }
+  function enemy(x, y, hp){ return { x, y, hp: hp + S.wave * 4, r: 9, atk: 6 + S.wave, cool: 0 }; }
+
+  function recompute(){
+    S.pop = S.villagers.length + S.militia.length;
+    $('r-food').textContent = Math.floor(S.res.food);
+    $('r-wood').textContent = Math.floor(S.res.wood);
+    $('r-gold').textContent = Math.floor(S.res.gold);
+    $('age').textContent = AGES[S.age];
+    $('wave').textContent = S.wave + '/5';
+    $('tc').textContent = Math.max(0, Math.round(S.tc.hp));
+    $('pop').textContent = S.pop + '/' + S.popCap;
+    const au = $('ageup');
+    if (S.age >= 2) { au.disabled = true; au.innerHTML = 'max age reached'; }
+    else {
+      const need = S.age === 0 ? [300, 100, 0] : [600, 0, 400];
+      au.innerHTML = 'age up → ' + AGES[S.age + 1] + ' <small>' + need[0] + '🌾 ' + (need[2] ? need[2] + '🪙' : need[1] + '🪵') + '</small>';
+      au.disabled = S.res.food < need[0] || S.res.wood < need[1] || S.res.gold < need[2];
+    }
+  }
+  function toast(text){ S.toasts.push({ text, life: 2.2, y: 0 }); }
+
+  function act(a){
+    if (S.over) { if (a === 'restart'){ reset(); $('restart').style.display = 'none'; $('msg').innerHTML=''; } return; }
+    if (a === 'villager'){
+      if (S.res.food < 50 || S.pop >= S.popCap) return toast('need 50 food & pop room');
+      S.res.food -= 50; S.villagers.push(villager(S.tc.x + 40, S.tc.y + 40));
+    } else if (a === 'militia'){
+      if (S.res.food < 60 || S.res.gold < 20 || S.pop >= S.popCap) return toast('need 60 food, 20 gold & pop room');
+      S.res.food -= 60; S.res.gold -= 20; S.militia.push(militiaU(S.tc.x + 60, S.tc.y - 30));
+    } else if (a === 'house'){
+      if (S.res.wood < 30) return toast('need 30 wood');
+      S.res.wood -= 30; S.popCap += 5;
+    } else if (a === 'ageup'){
+      const need = S.age === 0 ? { food: 300, wood: 100, gold: 0 } : { food: 600, wood: 0, gold: 400 };
+      if (S.res.food < need.food || S.res.wood < need.wood || S.res.gold < need.gold) return toast('not enough resources');
+      S.res.food -= need.food; S.res.wood -= need.wood; S.res.gold -= need.gold; S.age++;
+      toast('welcome to the ' + AGES[S.age] + ' age');
+    }
+    recompute();
+  }
+  document.getElementById('bar').addEventListener('click', e => {
+    const b = e.target.closest('.btn'); if (!b) return; act(b.dataset.a);
+  });
+
+  cv.addEventListener('click', e => {
+    const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    // nearest node?
+    let node = null, nd = 24;
+    for (const n of S.nodes){ if (n.amount <= 0) continue; const d = Math.hypot(n.x - mx, n.y - my); if (d < nd){ nd = d; node = n; } }
+    if (node){
+      const idle = S.villagers.filter(v => !v.node).sort((a, b) => Math.hypot(a.x - mx, a.y - my) - Math.hypot(b.x - mx, b.y - my))[0]
+                 || S.villagers.sort((a, b) => Math.hypot(a.x - mx, a.y - my) - Math.hypot(b.x - mx, b.y - my))[0];
+      if (idle){ idle.node = node; toast('→ ' + node.type); }
+      return;
+    }
+    // select a villager?
+    let pick = null, pd = 20;
+    for (const v of S.villagers){ const d = Math.hypot(v.x - mx, v.y - my); if (d < pd){ pd = d; pick = v; } }
+    S.sel = pick;
+  });
+
+  function step(dt){
+    if (S.over) return;
+    S.t += dt;
+    const rateMul = 1 + S.age * 0.25;
+
+    // villagers gather
+    for (const v of S.villagers){
+      if (v.node){
+        const n = v.node;
+        const d = Math.hypot(n.x - v.x, n.y - v.y);
+        if (d > 16){ const s = 70 * dt; v.x += (n.x - v.x) / d * s; v.y += (n.y - v.y) / d * s; }
+        else {
+          const g = RATE * rateMul * dt;
+          const take = Math.min(g, n.amount);
+          n.amount -= take;
+          if (n.type === 'wood') S.res.wood += take;
+          else if (n.type === 'food') S.res.food += take;
+          else S.res.gold += take;
+          if (n.amount <= 0) v.node = null;
+        }
+      }
+    }
+
+    // ally militia seek enemies
+    for (const m of S.militia){
+      m.cool = Math.max(0, m.cool - dt);
+      let tgt = null, td = 1e9;
+      for (const e of S.enemies){ const d = Math.hypot(e.x - m.x, e.y - m.y); if (d < td){ td = d; tgt = e; } }
+      if (tgt){
+        if (td > m.r + tgt.r + 16){ const s = 74 * dt; m.x += (tgt.x - m.x) / td * s; m.y += (tgt.y - m.y) / td * s; }
+        else if (m.cool <= 0){ tgt.hp -= m.atk; m.cool = 0.6; }
+      } else {
+        const d = Math.hypot(S.tc.x - m.x, S.tc.y - m.y);
+        if (d > 60){ const s = 60 * dt; m.x += (S.tc.x - m.x) / d * s; m.y += (S.tc.y - m.y) / d * s; }
+      }
+    }
+    S.enemies = S.enemies.filter(e => e.hp > 0);
+
+    // enemies seek nearest militia else town center
+    for (const e of S.enemies){
+      e.cool = Math.max(0, e.cool - dt);
+      let tgt = null, td = 1e9, isTc = false;
+      for (const m of S.militia){ const d = Math.hypot(m.x - e.x, m.y - e.y); if (d < td){ td = d; tgt = m; } }
+      if (!tgt || Math.hypot(S.tc.x - e.x, S.tc.y - e.y) < td){ tgt = S.tc; td = Math.hypot(S.tc.x - e.x, S.tc.y - e.y); isTc = true; }
+      if (td > (isTc ? S.tc.r + e.r + 4 : e.r + tgt.r + 14)){ const s = 52 * dt; e.x += (tgt.x - e.x) / td * s; e.y += (tgt.y - e.y) / td * s; }
+      else if (e.cool <= 0){
+        if (isTc) S.tc.hp -= e.atk; else tgt.hp -= e.atk;
+        e.cool = 0.8;
+      }
+    }
+    const before = S.militia.length;
+    S.militia = S.militia.filter(m => m.hp > 0);
+    if (S.militia.length < before) toast('a militia fell');
+
+    // waves
+    if (S.wave < 5 && S.t >= S.nextWave){
+      S.wave++; S.nextWave = S.t + 22;
+      const n = 2 + S.wave * 2;
+      for (let i = 0; i < n; i++) S.enemies.push(enemy(W + 20 + i * 16, H * (0.25 + Math.random() * 0.5), 30));
+      toast('wave ' + S.wave + ' incoming (' + n + ')');
+    }
+    if (S.wave >= 5 && S.enemies.length === 0 && S.t > S.nextWave){ S.over = 'won'; }
+    if (S.tc.hp <= 0){ S.over = 'lost'; }
+
+    for (const t of S.toasts) t.life -= dt;
+    S.toasts = S.toasts.filter(t => t.life > 0);
+    recompute();
+  }
+
+  function draw(){
+    ctx.clearRect(0, 0, W, H);
+    // ground
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, '#0e1a12'); g.addColorStop(1, '#0a120d');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // nodes
+    for (const n of S.nodes){
+      if (n.amount <= 0) continue;
+      const col = n.type === 'wood' ? '#6fbf5a' : n.type === 'food' ? '#e3b341' : '#f0c94a';
+      ctx.fillStyle = n.type === 'gold' ? '#caa23a' : n.type === 'wood' ? '#2f6b34' : '#8a5a2b';
+      if (n.type === 'wood'){ ctx.beginPath(); ctx.moveTo(n.x, n.y - 18); ctx.lineTo(n.x - 12, n.y + 6); ctx.lineTo(n.x + 12, n.y + 6); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#4a3320'; ctx.fillRect(n.x - 3, n.y + 4, 6, 10); }
+      else { ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 7); ctx.fill(); }
+      ctx.fillStyle = col; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(n.type + ' ' + Math.round(n.amount), n.x, n.y - 20);
+    }
+
+    // town center
+    const tc = S.tc;
+    ctx.fillStyle = '#6b4a2b'; ctx.fillRect(tc.x - 26, tc.y - 22, 52, 44);
+    ctx.fillStyle = '#8a5f36'; ctx.fillRect(tc.x - 30, tc.y - 30, 60, 12);
+    ctx.fillStyle = '#e3b341'; ctx.beginPath(); ctx.moveTo(tc.x - 30, tc.y - 30); ctx.lineTo(tc.x, tc.y - 46); ctx.lineTo(tc.x + 30, tc.y - 30); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#111'; ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.fillText('TOWN', tc.x, tc.y + 4);
+    // tc hp bar
+    ctx.fillStyle = '#3a1010'; ctx.fillRect(tc.x - 30, tc.y + 26, 60, 6);
+    ctx.fillStyle = '#5aa0e0'; ctx.fillRect(tc.x - 30, tc.y + 26, 60 * Math.max(0, tc.hp / tc.max), 6);
+
+    // villagers
+    for (const v of S.villagers){
+      ctx.fillStyle = '#e8e2d2'; ctx.beginPath(); ctx.arc(v.x, v.y, v.r, 0, 7); ctx.fill();
+      if (v.node){ ctx.strokeStyle = 'rgba(227,179,65,.6)'; ctx.beginPath(); ctx.moveTo(v.x, v.y); ctx.lineTo(v.node.x, v.node.y); ctx.stroke(); }
+      if (S.sel === v){ ctx.strokeStyle = '#5aa0e0'; ctx.beginPath(); ctx.arc(v.x, v.y, v.r + 5, 0, 7); ctx.stroke(); }
+    }
+    // militia
+    for (const m of S.militia){
+      ctx.fillStyle = '#6fbf5a'; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fill();
+      ctx.fillStyle = '#0b0c0e'; ctx.fillRect(m.x - 1, m.y - 6, 2, 12);
+    }
+    // enemies
+    for (const e of S.enemies){
+      ctx.fillStyle = '#e05a4f'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
+      ctx.fillStyle = '#3a1010'; ctx.fillRect(e.x - 10, e.y - e.r - 7, 20, 3);
+      ctx.fillStyle = '#e05a4f'; ctx.fillRect(e.x - 10, e.y - e.r - 7, 20 * Math.max(0, e.hp / (30 + S.wave * 4)), 3);
+    }
+
+    // toasts
+    ctx.textAlign = 'center'; ctx.font = '12px monospace';
+    S.toasts.forEach((t, i) => { ctx.fillStyle = 'rgba(232,226,210,' + Math.min(1, t.life) + ')'; ctx.fillText(t.text, W / 2, 28 + i * 16); });
+
+    if (S.over){
+      $('msg').innerHTML = S.over === 'won'
+        ? '<b>victory.</b><br>you reached the ' + AGES[S.age] + ' age and held five waves.<br><span style="color:#8b8578;font-size:13px">the villagers thank you.</span>'
+        : '<b>the town has fallen.</b><br>try more militia, or a faster age-up.';
+      $('restart').style.display = '';
+    }
+  }
+
+  let last = performance.now();
+  function frame(now){
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    step(dt); draw();
+    requestAnimationFrame(frame);
+  }
+  addEventListener('error', ev => { $('msg').innerHTML = '<b>error</b><br><span style="font-size:12px">' + (ev.message || '') + '</span>'; });
+  resize(); reset(); recompute();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
