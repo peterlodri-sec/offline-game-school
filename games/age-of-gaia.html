@@ -23,6 +23,7 @@
   #msg{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);text-align:center;font-size:20px;line-height:1.6;pointer-events:none;text-shadow:0 2px 18px #000}
   #msg b{color:var(--gold)}
   #sig{position:absolute;right:12px;top:10px;font-size:10.5px;color:#5c5b55;text-align:right;line-height:1.6;pointer-events:none}
+  #sig a{pointer-events:auto}
   #sig .sga{color:#ff8fc0}
   a{color:var(--blue)}
   @media (max-width:640px){ #sig{display:none} #hud{font-size:11px;gap:9px} }
@@ -39,17 +40,18 @@
     <span class="hp">town <b id="tc">500</b></span>
     <span class="res">pop <b id="pop">3/10</b></span>
     <span class="grow"></span>
-    <span style="color:var(--dim)" id="hint">click a tree / berry / gold to send a villager</span>
+    <span style="color:var(--dim)" id="hint">click a tree / berry / gold to send a villager · ♪ for music</span>
   </div>
   <div id="stage">
     <canvas id="cv"></canvas>
     <div id="msg"></div>
-    <div id="sig">Age of Gaia · an Age of Empires demake<br>for <b style="color:#a9987d">David</b> (the Netherlands) — curious mind, thank you<br>soundtrack · King Gizzard — <i>Gaia</i> · Angine de Poitrine (Live on KEXP)<br>one file · offline · <span class="sga">fine touch from within</span> · 0 + 1</div>
+    <div id="sig">Age of Gaia · an Age of Empires demake<br>for <b style="color:#a9987d">David</b> (the Netherlands) — curious mind, thank you<br>soundtrack · King Gizzard — <i>Gaia</i> · Angine de Poitrine (Live on KEXP)<br>more music → <a href="https://music.vaked.dev" target="_blank" rel="noopener">music.vaked.dev</a><br>one file · offline · <span class="sga">fine touch from within</span> · 0 + 1</div>
     <div id="bar">
       <button class="btn" data-a="villager">train villager <small>50🌾</small></button>
       <button class="btn" data-a="militia">train militia <small>60🌾 20🪙</small></button>
       <button class="btn" data-a="house">build house <small>30🪵 +5 pop</small></button>
       <button class="btn" data-a="ageup" id="ageup">age up → Feudal <small>300🌾 100🪵</small></button>
+      <button class="btn" data-a="music" id="music">♪ music on</button>
       <button class="btn" data-a="restart" id="restart" style="display:none">play again</button>
     </div>
   </div>
@@ -60,26 +62,105 @@
   'use strict';
   const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   let W = 0, H = 0, DPR = 1;
+  let terrain = null, blobSprite = null, stars = [], embers = [], blobs = [];
+
+  function buildTerrain(){
+    terrain = document.createElement('canvas');
+    terrain.width = Math.max(1, Math.round(W * DPR)); terrain.height = Math.max(1, Math.round(H * DPR));
+    const g = terrain.getContext('2d'); g.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const grd = g.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#0f2016'); grd.addColorStop(0.55, '#0d1a12'); grd.addColorStop(1, '#0a140e');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(120,220,150,.05)'; g.lineWidth = 1;
+    for (let x = 0; x <= W; x += 48){ g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y <= H; y += 48){ g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    for (let i = 0; i < Math.round(W * H / 2600); i++){
+      g.fillStyle = 'rgba(180,240,190,' + (0.02 + Math.random() * 0.05) + ')';
+      g.fillRect(Math.random() * W, Math.random() * H, 1.5, 1.5);
+    }
+    const vg = g.createRadialGradient(W * 0.5, H * 0.42, Math.min(W, H) * 0.2, W * 0.5, H * 0.5, Math.max(W, H) * 0.78);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)');
+    g.fillStyle = vg; g.fillRect(0, 0, W, H);
+  }
+  function buildBlob(){
+    blobSprite = document.createElement('canvas'); blobSprite.width = blobSprite.height = 256;
+    const g = blobSprite.getContext('2d');
+    const rg = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    rg.addColorStop(0, 'rgba(120,255,180,0.55)'); rg.addColorStop(0.4, 'rgba(60,200,160,0.18)'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, 256, 256);
+  }
+  function buildParticles(){
+    stars = Array.from({ length: Math.min(160, Math.round(W * H / 9000)) }, () => ({ x: Math.random() * W, y: Math.random() * H, z: 0.2 + Math.random() * 0.8, tw: Math.random() * 6.28 }));
+    embers = Array.from({ length: Math.min(44, Math.round(W / 40)) }, () => ({ x: Math.random() * W, y: Math.random() * H, vy: 6 + Math.random() * 16, r: 0.8 + Math.random() * 1.6, a: 0.1 + Math.random() * 0.28 }));
+    blobs = Array.from({ length: 3 }, (_, i) => ({ x: W * (0.2 + i * 0.3), y: H * (0.3 + (i % 2) * 0.3), r: 150 + Math.random() * 120, vx: 6 + i * 3, vy: 4 - i * 2, a: 0.15 - i * 0.03 }));
+  }
   function resize(){
     DPR = Math.min(devicePixelRatio || 1, 2);
     W = cv.clientWidth; H = cv.clientHeight;
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    buildTerrain(); buildBlob(); buildParticles();
   }
   addEventListener('resize', resize);
 
-  const RATE = 3;                 // villager gather / s at base
+  function bgTick(dt){
+    for (const s of stars){ s.x -= 3 * s.z * dt; if (s.x < 0) s.x += W; }
+    for (const e of embers){ e.y -= e.vy * dt; if (e.y < -2){ e.y = H + 2; e.x = Math.random() * W; } }
+    for (const b of blobs){
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.x < -b.r) b.x = W + b.r; if (b.x > W + b.r) b.x = -b.r;
+      if (b.y < -b.r) b.y = H + b.r; if (b.y > H + b.r) b.y = -b.r;
+    }
+  }
+
+  const RATE = 4;                 // villager gather / s at base
   const AGES = ['Dark', 'Feudal', 'Castle'];
   const NAMES = ['food', 'wood', 'gold'];
   const $ = id => document.getElementById(id);
 
+  // ---- procedural music (no samples) · starts on first gesture ----
+  let actx = null, master = null, arpTimer = null, musicOn = true;
+  const SCALE = [0, 3, 5, 7, 10, 12, 15, 14];
+  const midi = n => 220 * Math.pow(2, n / 12);
+  function startMusic(){
+    if (actx){ if (actx.state === 'suspended') actx.resume(); return; }
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+    master = actx.createGain(); master.gain.value = musicOn ? 0.15 : 0; master.connect(actx.destination);
+    const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520; lp.Q.value = 3; lp.connect(master);
+    [[-7, 'triangle', 0.5, 0.2], [0, 'sawtooth', 1.005, 0.1]].forEach(([semi, type, det, lvl]) => {
+      const o = actx.createOscillator(); o.type = type; o.frequency.value = midi(semi) * det;
+      const g = actx.createGain(); g.gain.value = lvl; o.connect(g); g.connect(lp); o.start();
+    });
+    const lfo = actx.createOscillator(); lfo.frequency.value = 0.07;
+    const lg = actx.createGain(); lg.gain.value = 240; lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+    let step = 0;
+    arpTimer = setInterval(() => {
+      if (!musicOn) return;
+      const base = (step % 16 < 8) ? 0 : -3;
+      const note = SCALE[(step * 3) % SCALE.length] + base + 3;
+      const t = actx.currentTime;
+      const o = actx.createOscillator(); o.type = 'triangle'; o.frequency.value = midi(note) * 2;
+      const g = actx.createGain();
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.08, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0006, t + 0.9);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + 1.0);
+      step++;
+    }, 300);
+  }
+  function toggleMusic(){
+    musicOn = !musicOn;
+    if (master) master.gain.value = musicOn ? 0.15 : 0;
+    const b = $('music'); if (b) b.innerHTML = musicOn ? '♪ music on' : '♪ music off';
+    startMusic();
+  }
+
   let S;
   function reset(){
     S = {
-      res: { food: 150, wood: 150, gold: 50 },
-      age: 0, wave: 0, nextWave: 15, over: null,
-      pop: 0, popCap: 10,
-      tc: { x: W * 0.16, y: H * 0.6, hp: 500, max: 500, r: 30 },
+      res: { food: 250, wood: 250, gold: 100 },
+      age: 0, wave: 0, nextWave: 30, over: null,
+      pop: 0, popCap: 12,
+      tc: { x: W * 0.16, y: H * 0.6, hp: 700, max: 700, r: 30 },
       nodes: [], villagers: [], militia: [], enemies: [],
       sel: null, toasts: [], t: 0
     };
@@ -90,8 +171,8 @@
     recompute();
   }
   function villager(x, y){ return { x, y, tx: x, ty: y, node: null, hp: 20, r: 8 }; }
-  function militiaU(x, y){ return { x, y, hp: 40 + S.age * 12, r: 9, atk: 8 + S.age * 2, cool: 0 }; }
-  function enemy(x, y, hp){ return { x, y, hp: hp + S.wave * 4, r: 9, atk: 6 + S.wave, cool: 0 }; }
+  function militiaU(x, y){ return { x, y, hp: 55 + S.age * 14, r: 9, atk: 9 + S.age * 2, cool: 0 }; }
+  function enemy(x, y, hp){ return { x, y, hp: hp + S.wave * 2, r: 9, atk: 4 + S.wave * 0.8, cool: 0 }; }
 
   function recompute(){
     S.pop = S.villagers.length + S.militia.length;
@@ -113,6 +194,7 @@
   function toast(text){ S.toasts.push({ text, life: 2.2, y: 0 }); }
 
   function act(a){
+    if (a === 'music'){ toggleMusic(); return; }
     if (S.over) { if (a === 'restart'){ reset(); $('restart').style.display = 'none'; $('msg').innerHTML=''; } return; }
     if (a === 'villager'){
       if (S.res.food < 50 || S.pop >= S.popCap) return toast('need 50 food & pop room');
@@ -136,6 +218,7 @@
   });
 
   cv.addEventListener('click', e => {
+    startMusic();
     const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
     // nearest node?
     let node = null, nd = 24;
@@ -196,7 +279,7 @@
       let tgt = null, td = 1e9, isTc = false;
       for (const m of S.militia){ const d = Math.hypot(m.x - e.x, m.y - e.y); if (d < td){ td = d; tgt = m; } }
       if (!tgt || Math.hypot(S.tc.x - e.x, S.tc.y - e.y) < td){ tgt = S.tc; td = Math.hypot(S.tc.x - e.x, S.tc.y - e.y); isTc = true; }
-      if (td > (isTc ? S.tc.r + e.r + 4 : e.r + tgt.r + 14)){ const s = 52 * dt; e.x += (tgt.x - e.x) / td * s; e.y += (tgt.y - e.y) / td * s; }
+      if (td > (isTc ? S.tc.r + e.r + 4 : e.r + tgt.r + 14)){ const s = 40 * dt; e.x += (tgt.x - e.x) / td * s; e.y += (tgt.y - e.y) / td * s; }
       else if (e.cool <= 0){
         if (isTc) S.tc.hp -= e.atk; else tgt.hp -= e.atk;
         e.cool = 0.8;
@@ -208,25 +291,26 @@
 
     // waves
     if (S.wave < 5 && S.t >= S.nextWave){
-      S.wave++; S.nextWave = S.t + 22;
-      const n = 2 + S.wave * 2;
-      for (let i = 0; i < n; i++) S.enemies.push(enemy(W + 20 + i * 16, H * (0.25 + Math.random() * 0.5), 30));
+      S.wave++; S.nextWave = S.t + 38;
+      const n = 1 + S.wave;
+      for (let i = 0; i < n; i++) S.enemies.push(enemy(W + 20 + i * 20, H * (0.25 + Math.random() * 0.5), 24));
       toast('wave ' + S.wave + ' incoming (' + n + ')');
     }
-    if (S.wave >= 5 && S.enemies.length === 0 && S.t > S.nextWave){ S.over = 'won'; }
+    if (S.wave >= 5 && S.enemies.length === 0){ S.over = 'won'; }
     if (S.tc.hp <= 0){ S.over = 'lost'; }
 
     for (const t of S.toasts) t.life -= dt;
     S.toasts = S.toasts.filter(t => t.life > 0);
-    recompute();
   }
 
   function draw(){
-    ctx.clearRect(0, 0, W, H);
-    // ground
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#0e1a12'); g.addColorStop(1, '#0a120d');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // ultra-perf: pre-rendered terrain + a few cheap animated layers
+    ctx.drawImage(terrain, 0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const b of blobs){ ctx.globalAlpha = b.a; ctx.drawImage(blobSprite, b.x - b.r, b.y - b.r, b.r * 2, b.r * 2); }
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    for (const s of stars){ s.tw += 0.03; const a = 0.22 + 0.34 * (0.5 + 0.5 * Math.sin(s.tw)); ctx.fillStyle = 'rgba(200,240,210,' + (a * s.z).toFixed(3) + ')'; ctx.fillRect(s.x, s.y, 1.6, 1.6); }
+    for (const e of embers){ ctx.fillStyle = 'rgba(255,220,150,' + e.a + ')'; ctx.fillRect(e.x, e.y, e.r, e.r); }
 
     // nodes
     for (const n of S.nodes){
@@ -280,10 +364,11 @@
     }
   }
 
-  let last = performance.now();
+  let last = performance.now(), lastUi = 0;
   function frame(now){
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    step(dt); draw();
+    step(dt); bgTick(dt); draw();
+    if (now - lastUi > 100){ recompute(); lastUi = now; }
     requestAnimationFrame(frame);
   }
   addEventListener('error', ev => { $('msg').innerHTML = '<b>error</b><br><span style="font-size:12px">' + (ev.message || '') + '</span>'; });
