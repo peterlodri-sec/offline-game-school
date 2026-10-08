@@ -46,3 +46,23 @@ keeps asking the good questions — met the constellation.
 
 *Age of Gaia is a fan homage; not affiliated with Age of Empires. The loop is
 ages old: gather, build, defend, ascend. Fine touch from within · 0 + 1.*
+
+## The samurai layer (Sengoku)
+
+Toggle **⚔ samurai layer** for the Sengoku reskin:
+
+- resources become **rice · timber · koku**,
+- the ages read **Sengoku → Azuchi–Momoyama → Edo**,
+- villagers are **ashigaru** (straw hats), militia are **samurai** (topknot + katana),
+- the raiders are **rōnin** (banners), and the town becomes a **castle (城)**,
+- a **patience (忍耐) meter** fills while your line holds and grants damage reduction;
+  lose a unit and it halves. *Patience is the root of quietness.*
+
+**Why it is here.** Tokugawa Ieyasu (1543–1616) — the third of the Great Unifiers and the
+founder of the Tokugawa shogunate — won by outlasting. He was a hostage as a boy, waited
+through Nobunaga and Hideyoshi, and took power at Sekigahara. The layer quotes his own words:
+
+> Life is like unto a long journey with a heavy burden. … Forbearance is the root of all
+> quietness and assurance forever.
+
+(Source: the *Tokugawa Ieyasu* article on Wikipedia, CC BY-SA. A small homage, plainly credited.)

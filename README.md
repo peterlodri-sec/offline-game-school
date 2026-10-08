@@ -28,7 +28,7 @@ and changed by the learner. The code is the lesson.
 | Snake | `games/snake.html` | arrays, timers, collision, state |
 | Mastermind | `games/mastermind.html` | logic deduction, feedback loops |
 | Memory Match | `games/memory-match.html` | arrays, events, shuffle |
-| Age of Gaia | `games/age-of-gaia.html` | entities, game loop, economy, waves, targeting — a tiny real-time strategy |
+| Age of Gaia | `games/age-of-gaia.html` | entities, game loop, economy, waves, targeting — a tiny real-time strategy · **+ a samurai (Sengoku) layer** (rice/timber/koku, ashigaru/samurai, a 城 castle, a patience 忍耐 meter) |
 
 ## How to use (offline, no internet)
 

@@ -32,12 +32,12 @@
 <body>
 <div id="wrap">
   <div id="hud">
-    <span class="res">🌾 food <b id="r-food">150</b></span>
-    <span class="res">🪵 wood <b id="r-wood">150</b></span>
-    <span class="res">🪙 gold <b id="r-gold">50</b></span>
+    <span class="res"><span id="l-food">🌾 food</span> <b id="r-food">150</b></span>
+    <span class="res"><span id="l-wood">🪵 wood</span> <b id="r-wood">150</b></span>
+    <span class="res"><span id="l-gold">🪙 gold</span> <b id="r-gold">50</b></span>
     <span class="age">age <b id="age">Dark</b></span>
     <span class="wave">wave <b id="wave">0/5</b></span>
-    <span class="hp">town <b id="tc">500</b></span>
+    <span class="hp"><span id="l-town">town</span> <b id="tc">500</b></span>
     <span class="res">pop <b id="pop">3/10</b></span>
     <span class="grow"></span>
     <span style="color:var(--dim)" id="hint">click a tree / berry / gold to send a villager · ♪ for music</span>
@@ -45,12 +45,13 @@
   <div id="stage">
     <canvas id="cv"></canvas>
     <div id="msg"></div>
-    <div id="sig">Age of Gaia · an Age of Empires demake<br>for <b style="color:#a9987d">David</b> (the Netherlands) — curious mind, thank you<br>soundtrack · King Gizzard — <i>Gaia</i> · Angine de Poitrine (Live on KEXP)<br>more music → <a href="https://music.vaked.dev" target="_blank" rel="noopener">music.vaked.dev</a><br>one file · offline · <span class="sga">fine touch from within</span> · 0 + 1</div>
+    <div id="sig">Age of Gaia · an Age of Empires demake<br>for <b style="color:#a9987d">David</b> (the Netherlands) — curious mind, thank you<br>soundtrack · King Gizzard — <i>Gaia</i> · Angine de Poitrine (Live on KEXP)<br>more music → <a href="https://music.vaked.dev" target="_blank" rel="noopener">music.vaked.dev</a><br>one file · offline · <span class="sga">fine touch from within</span> · 0 + 1<br><span id="sig-lore" style="color:#c9b06a"></span></div>
     <div id="bar">
       <button class="btn" data-a="villager">train villager <small>50🌾</small></button>
       <button class="btn" data-a="militia">train militia <small>60🌾 20🪙</small></button>
       <button class="btn" data-a="house">build house <small>30🪵 +5 pop</small></button>
       <button class="btn" data-a="ageup" id="ageup">age up → Feudal <small>300🌾 100🪵</small></button>
+      <button class="btn" data-a="samurai" id="samurai">⚔ samurai layer: off</button>
       <button class="btn" data-a="music" id="music">♪ music on</button>
       <button class="btn" data-a="restart" id="restart" style="display:none">play again</button>
     </div>
@@ -155,6 +156,12 @@
   }
 
   let S;
+  let SAMURAI = false;
+  const SENGOKU = ['Sengoku', 'Azuchi\u2013Momoyama', 'Edo'];
+  const ageName = i => ((SAMURAI ? SENGOKU : AGES)[i] || '');
+  const th = () => SAMURAI
+    ? { food: '🍚 rice', wood: '🪵 timber', gold: '🪙 koku', villager: 'ashigaru', militia: 'samurai', town: 'castle' }
+    : { food: '🌾 food', wood: '🪵 wood', gold: '🪙 gold', villager: 'villager', militia: 'militia', town: 'town' };
   function reset(){
     S = {
       res: { food: 250, wood: 250, gold: 100 },
@@ -162,7 +169,7 @@
       pop: 0, popCap: 12,
       tc: { x: W * 0.16, y: H * 0.6, hp: 700, max: 700, r: 30 },
       nodes: [], villagers: [], militia: [], enemies: [],
-      sel: null, toasts: [], t: 0
+      sel: null, toasts: [], t: 0, patience: 0, _zen: false
     };
     const kinds = [['food', W*0.42, H*0.28], ['food', W*0.36, H*0.72], ['wood', W*0.62, H*0.25],
                    ['wood', W*0.70, H*0.58], ['wood', W*0.66, H*0.82], ['gold', W*0.86, H*0.44], ['gold', W*0.30, H*0.16]];
@@ -176,18 +183,23 @@
 
   function recompute(){
     S.pop = S.villagers.length + S.militia.length;
+    const t = th();
+    $('l-food').textContent = t.food; $('l-wood').textContent = t.wood; $('l-gold').textContent = t.gold;
     $('r-food').textContent = Math.floor(S.res.food);
     $('r-wood').textContent = Math.floor(S.res.wood);
     $('r-gold').textContent = Math.floor(S.res.gold);
-    $('age').textContent = AGES[S.age];
+    $('age').textContent = ageName(S.age);
     $('wave').textContent = S.wave + '/5';
+    $('l-town').textContent = t.town;
     $('tc').textContent = Math.max(0, Math.round(S.tc.hp));
     $('pop').textContent = S.pop + '/' + S.popCap;
+    const sl = $('sig-lore');
+    if (sl) sl.textContent = SAMURAI ? '"Life is like unto a long journey with a heavy burden." \u2014 the Great Unifier' : '';
     const au = $('ageup');
     if (S.age >= 2) { au.disabled = true; au.innerHTML = 'max age reached'; }
     else {
       const need = S.age === 0 ? [300, 100, 0] : [600, 0, 400];
-      au.innerHTML = 'age up → ' + AGES[S.age + 1] + ' <small>' + need[0] + '🌾 ' + (need[2] ? need[2] + '🪙' : need[1] + '🪵') + '</small>';
+      au.innerHTML = 'age up → ' + ageName(S.age + 1) + ' <small>' + need[0] + '🌾 ' + (need[2] ? need[2] + '🪙' : need[1] + '🪵') + '</small>';
       au.disabled = S.res.food < need[0] || S.res.wood < need[1] || S.res.gold < need[2];
     }
   }
@@ -195,6 +207,7 @@
 
   function act(a){
     if (a === 'music'){ toggleMusic(); return; }
+    if (a === 'samurai'){ SAMURAI = !SAMURAI; const sb = $('samurai'); sb.innerHTML = '⚔ samurai layer: ' + (SAMURAI ? 'on' : 'off'); sb.classList.toggle('on', SAMURAI); toast(SAMURAI ? 'the samurai layer \u2014 patience is the root of quietness' : 'the samurai layer, off'); recompute(); return; }
     if (S.over) { if (a === 'restart'){ reset(); $('restart').style.display = 'none'; $('msg').innerHTML=''; } return; }
     if (a === 'villager'){
       if (S.res.food < 50 || S.pop >= S.popCap) return toast('need 50 food & pop room');
@@ -209,7 +222,7 @@
       const need = S.age === 0 ? { food: 300, wood: 100, gold: 0 } : { food: 600, wood: 0, gold: 400 };
       if (S.res.food < need.food || S.res.wood < need.wood || S.res.gold < need.gold) return toast('not enough resources');
       S.res.food -= need.food; S.res.wood -= need.wood; S.res.gold -= need.gold; S.age++;
-      toast('welcome to the ' + AGES[S.age] + ' age');
+      toast('welcome to the ' + ageName(S.age) + (SAMURAI ? ' era' : ' age'));
     }
     recompute();
   }
@@ -281,13 +294,19 @@
       if (!tgt || Math.hypot(S.tc.x - e.x, S.tc.y - e.y) < td){ tgt = S.tc; td = Math.hypot(S.tc.x - e.x, S.tc.y - e.y); isTc = true; }
       if (td > (isTc ? S.tc.r + e.r + 4 : e.r + tgt.r + 14)){ const s = 40 * dt; e.x += (tgt.x - e.x) / td * s; e.y += (tgt.y - e.y) / td * s; }
       else if (e.cool <= 0){
-        if (isTc) S.tc.hp -= e.atk; else tgt.hp -= e.atk;
+        const dmg = e.atk * (SAMURAI ? (1 - 0.4 * S.patience) : 1);
+        if (isTc) S.tc.hp -= dmg; else tgt.hp -= dmg;
         e.cool = 0.8;
       }
     }
     const before = S.militia.length;
     S.militia = S.militia.filter(m => m.hp > 0);
-    if (S.militia.length < before) toast('a militia fell');
+    if (S.militia.length < before) toast(SAMURAI ? 'an ashigaru fell' : 'a militia fell');
+    if (SAMURAI){
+      if (S.militia.length < before) S.patience = Math.max(0, S.patience * 0.5);
+      else S.patience = Math.min(1, S.patience + dt * 0.03);
+      if (S.patience >= 1 && !S._zen){ S._zen = true; toast('忍耐 · patience — the root of quietness (+defense)'); }
+    }
 
     // waves
     if (S.wave < 5 && S.t >= S.nextWave){
@@ -321,22 +340,36 @@
         ctx.fillStyle = '#4a3320'; ctx.fillRect(n.x - 3, n.y + 4, 6, 10); }
       else { ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, 7); ctx.fill(); }
       ctx.fillStyle = col; ctx.font = '10px monospace'; ctx.textAlign = 'center';
-      ctx.fillText(n.type + ' ' + Math.round(n.amount), n.x, n.y - 20);
+      ctx.fillText((SAMURAI ? { food: 'rice', wood: 'timber', gold: 'koku' }[n.type] : n.type) + ' ' + Math.round(n.amount), n.x, n.y - 20);
     }
 
-    // town center
+    // town center / castle
     const tc = S.tc;
-    ctx.fillStyle = '#6b4a2b'; ctx.fillRect(tc.x - 26, tc.y - 22, 52, 44);
-    ctx.fillStyle = '#8a5f36'; ctx.fillRect(tc.x - 30, tc.y - 30, 60, 12);
-    ctx.fillStyle = '#e3b341'; ctx.beginPath(); ctx.moveTo(tc.x - 30, tc.y - 30); ctx.lineTo(tc.x, tc.y - 46); ctx.lineTo(tc.x + 30, tc.y - 30); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#111'; ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.fillText('TOWN', tc.x, tc.y + 4);
+    if (SAMURAI){
+      ctx.fillStyle = '#e8e2d2'; ctx.fillRect(tc.x - 24, tc.y - 16, 48, 34);
+      ctx.fillStyle = '#2b2f36';
+      ctx.beginPath(); ctx.moveTo(tc.x - 34, tc.y - 16); ctx.lineTo(tc.x, tc.y - 30); ctx.lineTo(tc.x + 34, tc.y - 16); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(tc.x - 26, tc.y - 28); ctx.lineTo(tc.x, tc.y - 44); ctx.lineTo(tc.x + 26, tc.y - 28); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#e3b341'; ctx.fillRect(tc.x - 1, tc.y - 52, 2, 8);
+      ctx.fillStyle = '#111'; ctx.font = '13px monospace'; ctx.textAlign = 'center'; ctx.fillText('城', tc.x, tc.y + 8);
+    } else {
+      ctx.fillStyle = '#6b4a2b'; ctx.fillRect(tc.x - 26, tc.y - 22, 52, 44);
+      ctx.fillStyle = '#8a5f36'; ctx.fillRect(tc.x - 30, tc.y - 30, 60, 12);
+      ctx.fillStyle = '#e3b341'; ctx.beginPath(); ctx.moveTo(tc.x - 30, tc.y - 30); ctx.lineTo(tc.x, tc.y - 46); ctx.lineTo(tc.x + 30, tc.y - 30); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#111'; ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.fillText('TOWN', tc.x, tc.y + 4);
+    }
     // tc hp bar
     ctx.fillStyle = '#3a1010'; ctx.fillRect(tc.x - 30, tc.y + 26, 60, 6);
-    ctx.fillStyle = '#5aa0e0'; ctx.fillRect(tc.x - 30, tc.y + 26, 60 * Math.max(0, tc.hp / tc.max), 6);
+    ctx.fillStyle = SAMURAI ? '#e3b341' : '#5aa0e0'; ctx.fillRect(tc.x - 30, tc.y + 26, 60 * Math.max(0, tc.hp / tc.max), 6);
+    if (SAMURAI){
+      ctx.fillStyle = '#241a0a'; ctx.fillRect(tc.x - 30, tc.y + 34, 60, 4);
+      ctx.fillStyle = '#b48bff'; ctx.fillRect(tc.x - 30, tc.y + 34, 60 * S.patience, 4);
+    }
 
     // villagers
     for (const v of S.villagers){
       ctx.fillStyle = '#e8e2d2'; ctx.beginPath(); ctx.arc(v.x, v.y, v.r, 0, 7); ctx.fill();
+      if (SAMURAI){ ctx.fillStyle = '#c9a06a'; ctx.beginPath(); ctx.moveTo(v.x - 7, v.y - 3); ctx.lineTo(v.x, v.y - 11); ctx.lineTo(v.x + 7, v.y - 3); ctx.closePath(); ctx.fill(); }
       if (v.node){ ctx.strokeStyle = 'rgba(227,179,65,.6)'; ctx.beginPath(); ctx.moveTo(v.x, v.y); ctx.lineTo(v.node.x, v.node.y); ctx.stroke(); }
       if (S.sel === v){ ctx.strokeStyle = '#5aa0e0'; ctx.beginPath(); ctx.arc(v.x, v.y, v.r + 5, 0, 7); ctx.stroke(); }
     }
@@ -344,10 +377,12 @@
     for (const m of S.militia){
       ctx.fillStyle = '#6fbf5a'; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 7); ctx.fill();
       ctx.fillStyle = '#0b0c0e'; ctx.fillRect(m.x - 1, m.y - 6, 2, 12);
+      if (SAMURAI){ ctx.fillRect(m.x - 1, m.y - 14, 3, 5); ctx.strokeStyle = '#e8e2d2'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(m.x + 4, m.y - 6); ctx.lineTo(m.x + 12, m.y - 14); ctx.stroke(); ctx.lineWidth = 1; }
     }
     // enemies
     for (const e of S.enemies){
       ctx.fillStyle = '#e05a4f'; ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
+      if (SAMURAI){ ctx.fillStyle = '#7a1f1a'; ctx.fillRect(e.x + 6, e.y - 18, 2, 16); ctx.fillStyle = '#c0392b'; ctx.fillRect(e.x + 8, e.y - 18, 8, 6); }
       ctx.fillStyle = '#3a1010'; ctx.fillRect(e.x - 10, e.y - e.r - 7, 20, 3);
       ctx.fillStyle = '#e05a4f'; ctx.fillRect(e.x - 10, e.y - e.r - 7, 20 * Math.max(0, e.hp / (30 + S.wave * 4)), 3);
     }
@@ -357,9 +392,10 @@
     S.toasts.forEach((t, i) => { ctx.fillStyle = 'rgba(232,226,210,' + Math.min(1, t.life) + ')'; ctx.fillText(t.text, W / 2, 28 + i * 16); });
 
     if (S.over){
+      const t = th();
       $('msg').innerHTML = S.over === 'won'
-        ? '<b>victory.</b><br>you reached the ' + AGES[S.age] + ' age and held five waves.<br><span style="color:#8b8578;font-size:13px">the villagers thank you.</span>'
-        : '<b>the town has fallen.</b><br>try more militia, or a faster age-up.';
+        ? '<b>victory.</b><br>you reached the ' + ageName(S.age) + (SAMURAI ? ' era' : ' age') + ' and held five waves.<br><span style="color:#8b8578;font-size:13px">the ' + t.villager + 's thank you.</span>'
+        : '<b>the ' + t.town + ' has fallen.</b><br>try more ' + t.militia + ', or a faster age-up.';
       $('restart').style.display = '';
     }
   }
